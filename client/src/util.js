@@ -1,6 +1,6 @@
 import Web3 from "web3";
 import Dex from "./contracts/Dex.json";
-import ERC20 from "./ERC20Abi.json";
+import ERC20 from "./contracts/Dai.json";
 
 const getWeb3 = () => {
   return new Promise((resolve, reject) => {
