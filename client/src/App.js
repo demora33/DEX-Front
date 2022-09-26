@@ -4,6 +4,8 @@ import Footer from "./Footer.js";
 import Wallet from "./Wallet.js";
 import NewOrder from "./NewOrder.js";
 import AllOrders from "./AllOrders.js";
+import MyOrders from "./MyOrders.js";
+import AllTrades from "./AllTrades.js";
 
 const SIDE = {
   BUY: 0,
@@ -24,6 +26,9 @@ function App({ web3, accounts, contracts }) {
     buy: [],
     sell: [],
   });
+
+  const [trades, setTrades] = useState([]);
+  const [listener, setListener] = useState(undefined);
 
   const getBalances = async (account, token) => {
     const tokenDex = await contracts.dex.methods
@@ -95,6 +100,22 @@ function App({ web3, accounts, contracts }) {
     setOrders(orders);
   };
 
+  const listenToTrades = (token) => {
+    const tradeIds = new Set();
+    setTrades([]);
+    const listener = contracts.dex.events
+      .NewTrade({
+        filter: { symbol: web3.utils.fromAscii(token.symbol) },
+        fromBlock: 0,
+      })
+      .on("data", (newTrade) => {
+        if (tradeIds.has(newTrade.returnValues.tradeId)) return;
+        tradeIds.add(newTrade.returnValues.tradeId);
+        setTrades((trades) => [...trades, newTrade.returnValues]);
+      });
+    setListener(listener);
+  };
+
   useEffect(() => {
     const init = async () => {
       const rawTokens = await contracts.dex.methods.getTokens().call();
@@ -106,6 +127,7 @@ function App({ web3, accounts, contracts }) {
         getBalances(accounts[0], tokens[0]),
         getOrders(tokens[0]),
       ]);
+      listenToTrades(tokens[0]);
       setTokens(tokens);
       setUser({ accounts, balances, selectedToken: tokens[0] });
       setOrders(orders);
@@ -113,19 +135,26 @@ function App({ web3, accounts, contracts }) {
     init();
   }, []);
 
-  useEffect(() => {
-    const init = async () => {
-      const [balances, orders] = await Promise.all([
-        getBalances(user.accounts[0], user.selectedToken),
-        getOrders(user.selectedToken),
-      ]);
-      setUser((user) => ({ ...user, balances }));
-      setOrders(orders);
-    };
-    if (typeof user.selectedToken !== "undefined") {
-      init();
+  useEffect(
+    () => {
+      const init = async () => {
+        const [balances, orders] = await Promise.all([
+          getBalances(user.accounts[0], user.selectedToken),
+          getOrders(user.selectedToken),
+        ]);
+        listenToTrades(user.selectedToken);
+        setUser((user) => ({ ...user, balances }));
+        setOrders(orders);
+      };
+      if (typeof user.selectedToken !== "undefined") {
+        init();
+      }
+    },
+    [user.selectedToken],
+    () => {
+      listener.unsuscribe();
     }
-  }, [user.selectedToken]);
+  );
 
   if (typeof user.selectedToken === "undefined") {
     return <div>Loading...</div>;
@@ -152,7 +181,22 @@ function App({ web3, accounts, contracts }) {
           </div>
           {user.selectedToken.ticker !== "DAI" ? (
             <div className="col-sm-8">
+              <AllTrades trades={trades} />
               <AllOrders orders={orders} />
+              <MyOrders
+                orders={{
+                  buy: orders.buy.filter(
+                    (order) =>
+                      order.trader.toLowerCase() ===
+                      user.accounts[0].toLowerCase()
+                  ),
+                  sell: orders.sell.filter(
+                    (order) =>
+                      order.trader.toLowerCase() ===
+                      user.accounts[0].toLowerCase()
+                  ),
+                }}
+              />
             </div>
           ) : null}
         </div>

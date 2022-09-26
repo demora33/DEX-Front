@@ -9,6 +9,7 @@
     "react-dom": "^16.11.0",
     "react-moment": "^1.1.2",
     "react-scripts": "^3.2.0",
+    "recharts": "^2.1.14",
     "web3": "^1.8.0"
   },
   "scripts": {

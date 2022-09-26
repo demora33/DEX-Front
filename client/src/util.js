@@ -57,6 +57,7 @@ const getContracts = async (web3) => {
     }),
     {}
   );
+
   return { dex, ...tokenContracts };
 };
 
